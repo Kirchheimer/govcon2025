@@ -1,0 +1,82 @@
+services:
+  web:
+    image: php:8.1-apache
+    volumes:
+      - ./web:/var/www/html
+    ports:
+      - "8090:90"
+    environment:
+      - APACHE_DOCUMENT_ROOT=/var/www/html
+
+  backstop:
+    image: backstopjs/backstopjs
+    volumes:
+      - ./:/src
+    working_dir: /src/scripts/visual_regression_backstop
+    depends_on:
+      - web
+    entrypoint: >
+      bash -c "
+        echo '--- Installing Node.js and generating BackstopJS config ---' &&
+        apt-get update && apt-get install -y nodejs npm &&
+        
+        echo '--- Generating dynamic BackstopJS configuration ---' &&
+        node generate-config.js &&
+        
+        echo '--- Running BackstopJS command: $${BACKSTOP_COMMAND:-test} ---' &&
+        backstop $${BACKSTOP_COMMAND:-test}
+      "
+    environment:
+      - BACKSTOP_COMMAND=${BACKSTOP_COMMAND:-test}
+
+  zap:
+    image: ghcr.io/zaproxy/zaproxy:stable
+    user: root
+    volumes:
+      - ./:/zap/src
+      - ./zap-results:/zap/wrk
+    working_dir: /zap/src
+    depends_on:
+      - web
+    command: >
+      bash -c "
+        apt-get update && apt-get install -y jq &&
+        
+        echo '--- Starting ZAP Scan on URLs from 508-test-pages.json ---' &&
+        
+        cat scripts/508-test-pages.json | jq -r '.[]' | while read url; do
+          echo \"Scanning URL: $$url\"
+          
+          domain=$(echo \"$$url\" | sed 's|https\?://||' | sed 's|/.*||' | sed 's|\\.|-|g')
+          report_file=\"/zap/wrk/zap-report-$${domain}.html\"
+
+          zap-baseline.py -t \"$$url\" -r \"$$report_file\" || true
+        done &&
+
+        echo '--- ZAP Scan Complete. Reports are in the zap-results directory. ---'
+      "
+
+  code-quality:
+    image: ubuntu:22.04
+    user: root
+    volumes:
+      - ./:/app
+    working_dir: /app
+    command: >
+      bash -c "
+        apt-get update && 
+        apt-get install -y nodejs npm php-cli php-pear && 
+        npm install eslint && 
+        pear install PHP_CodeSniffer && 
+        echo '--- Running PHP CodeSniffer ---' &&
+        phpcs --standard=PSR12 web/ && 
+        echo '--- Running ESLint ---' &&
+        npx eslint . --ext .js,.jsx,.ts,.tsx
+      "
+
+  link-checker:
+    image: lycheeverse/lychee
+    volumes:
+      - ./:/app
+    working_dir: /app
+    command: --verbose --no-progress scripts/load_test_sitemap.xml

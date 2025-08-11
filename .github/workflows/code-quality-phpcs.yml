@@ -1,0 +1,53 @@
+name: PHP Code Quality (PHP_CodeSniffer)
+
+on:
+  push:
+    branches:
+      - testbot/phpcs-test-run
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  phpcs_scan:
+    runs-on: ubuntu-latest
+    name: PHP CodeSniffer Scan
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: phpcs
+
+      - name: Validate PHP files with PHP_CodeSniffer
+        run: |
+          phpcs --standard=PSR12 --extensions=php --ignore=*/vendor/* -n web/
+
+      - name: PHPCS Summary
+        if: always()
+        run: |
+          echo "### 🐘 PHP CodeSniffer (PSR-12) Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Run the command again and capture output
+          phpcs_output=$(phpcs --standard=PSR12 --extensions=php --ignore=*/vendor/* web/ || true)
+          
+          if [[ -z "$phpcs_output" ]]; then
+            echo "✅ **Success**: No PHP coding standard violations found." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Violations Found**: The following issues were detected:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "$phpcs_output" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please review the logs for detailed information on each violation." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Standard**: PSR-12" >> $GITHUB_STEP_SUMMARY
+          echo "**Target**: \`web/\` directory" >> $GITHUB_STEP_SUMMARY

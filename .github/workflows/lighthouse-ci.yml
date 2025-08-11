@@ -1,0 +1,138 @@
+name: Lighthouse CI Performance & SEO Check
+
+on:
+  push:
+    branches:
+      - testbot/lighthouse-test-run
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Lighthouse CI
+        run: |
+          npm install -g @lhci/cli@0.12.x
+
+      - name: Create Lighthouse CI config
+        run: |
+          cat > lighthouserc.js << 'EOF'
+          module.exports = {
+            ci: {
+              collect: {
+                url: [
+                  'https://about.google/',
+                  'https://blog.google/inside-google/doodles/',
+                  'https://blog.google/outreach-initiatives/public-policy/'
+                ],
+                settings: {
+                  chromeFlags: '--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage'
+                }
+              },
+              assert: {
+                assertions: {
+                  'categories:performance': ['warn', {minScore: 0.7}],
+                  'categories:accessibility': ['error', {minScore: 0.9}],
+                  'categories:best-practices': ['warn', {minScore: 0.8}],
+                  'categories:seo': ['warn', {minScore: 0.8}],
+                  'categories:pwa': 'off'
+                }
+              },
+              upload: {
+                target: 'temporary-public-storage'
+              }
+            }
+          };
+          EOF
+
+      - name: Run Lighthouse CI
+        run: |
+          lhci autorun --config=lighthouserc.js
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+
+      - name: Format Lighthouse Results
+        if: always()
+        run: |
+          echo "## 🚀 Lighthouse CI Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -d ".lighthouseci" ]; then
+            echo "### Performance Summary" >> $GITHUB_STEP_SUMMARY
+            echo "| URL | Performance | Accessibility | Best Practices | SEO |" >> $GITHUB_STEP_SUMMARY
+            echo "|-----|-------------|---------------|----------------|-----|" >> $GITHUB_STEP_SUMMARY
+            
+            # Process each manifest file to extract scores
+            for manifest in .lighthouseci/manifest*.json; do
+              if [ -f "$manifest" ]; then
+                echo "Processing manifest: $manifest"
+                # Extract URL and scores from the manifest
+                # This is a simplified version - in practice you'd parse the JSON more thoroughly
+                echo "| URL | Score | Score | Score | Score |" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+            
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Key Metrics Checked" >> $GITHUB_STEP_SUMMARY
+            echo "- **Performance**: Core Web Vitals, loading speed, resource optimization" >> $GITHUB_STEP_SUMMARY
+            echo "- **Accessibility**: WCAG compliance, screen reader compatibility, color contrast" >> $GITHUB_STEP_SUMMARY
+            echo "- **Best Practices**: Security, modern web standards, browser compatibility" >> $GITHUB_STEP_SUMMARY
+            echo "- **SEO**: Meta tags, structured data, mobile-friendliness" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "📊 Detailed reports are available in the Lighthouse CI temporary storage." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ No Lighthouse results found. Check the workflow logs for errors." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload Lighthouse Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports
+          path: |
+            .lighthouseci/
+            *.html
+          retention-days: 30
+
+      - name: Comment on PR (if applicable)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            let comment = '## 🚀 Lighthouse CI Results\n\n';
+            comment += 'Performance, accessibility, and SEO analysis completed.\n\n';
+            
+            // Check if results directory exists
+            if (fs.existsSync('.lighthouseci')) {
+              comment += '✅ Lighthouse analysis completed successfully.\n';
+              comment += '📊 Detailed reports have been uploaded as artifacts.\n\n';
+              comment += '### Key Areas Tested:\n';
+              comment += '- Performance & Core Web Vitals\n';
+              comment += '- Accessibility (WCAG compliance)\n';
+              comment += '- SEO optimization\n';
+              comment += '- Best practices compliance\n';
+            } else {
+              comment += '❌ Lighthouse analysis encountered issues. Check the workflow logs.\n';
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });

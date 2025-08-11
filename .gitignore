@@ -1,0 +1,129 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# BackstopJS test artifacts
+scripts/visual_regression_backstop/backstop_data/bitmaps_test/
+scripts/visual_regression_backstop/backstop_data/html_report/
+scripts/visual_regression_backstop/backstop_data/ci_report/
+scripts/visual_regression_backstop/backstop_data/engine_scripts/
+# Keep reference images in version control (optional - uncomment to ignore)
+# scripts/visual_regression_backstop/backstop_data/bitmaps_reference/
+
+# OWASP ZAP results
+zap-results/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Docker
+.docker/
+
+# Logs
+logs/
+*.log
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Build artifacts
+dist/
+build/
+out/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Environment files (may contain secrets)
+.env
+.env.local
+.env.*.local
+
+# PHP specific
+vendor/
+composer.lock
+.phpunit.result.cache
+
+# Python specific
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+.venv
+
+# Generated documentation
+docs/_build/
+docs/_site/
+
+# Cache directories
+.cache/
+.sass-cache/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Archive files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Database files
+*.sqlite
+*.db
+
+# macOS specific
+.AppleDouble
+.LSOverride
+Icon
+.DocumentRevisions-V100
+.fseventsd
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows specific
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux specific
+.directory
+.Trash-*
+.nfs*
+/scripts/visual_regression_backstop/backstop_data

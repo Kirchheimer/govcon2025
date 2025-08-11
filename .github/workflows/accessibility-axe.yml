@@ -1,0 +1,26 @@
+name: Accessibility Check
+
+on:
+  push:
+    branches:
+      - testbot/508-test-run
+
+jobs:
+  a11y-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: |
+          npm install axe-core puppeteer
+
+      - name: Run Custom axe-core 508 WCAG Script (unfold for results)
+        run: node scripts/accessibility/axe-test.js

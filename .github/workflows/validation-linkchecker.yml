@@ -1,0 +1,42 @@
+name: Link Validation (Lychee)
+
+on:
+  push:
+    branches:
+      - testbot/linkchecker-test-run
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  link_checker:
+    runs-on: ubuntu-latest
+    name: Lychee Link Checker
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Lychee Link Checker
+        uses: lycheeverse/lychee-action@v1
+        with:
+          args: --verbose --no-progress './**/*.md' './**/*.html'
+          
+      - name: Link Checker Summary
+        if: always()
+        run: |
+          echo "### 🔗 Link Validation (Lychee) Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # The lychee-action doesn't have a simple output variable,
+          # so we check the step's conclusion.
+          if [[ ${{ steps.link_checker.outcome }} == 'success' ]]; then
+            echo "✅ **Success**: No broken links found." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Broken Links Found**: Please check the logs above for details." >> $GITHUB_STEP_SUMMARY
+            echo "The action output provides a list of all broken links and the files they are in." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Target**: All Markdown and HTML files in the repository" >> $GITHUB_STEP_SUMMARY

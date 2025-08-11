@@ -1,0 +1,54 @@
+name: JavaScript Code Quality (ESLint)
+
+on:
+  push:
+    branches:
+      - testbot/eslint-test-run
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  eslint_scan:
+    runs-on: ubuntu-latest
+    name: ESLint Scan
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install ESLint
+        run: npm install eslint
+
+      - name: Run ESLint
+        run: npx eslint . --ext .js,.jsx,.ts,.tsx
+
+      - name: ESLint Summary
+        if: always()
+        run: |
+          echo "### 📜 JavaScript Code Quality (ESLint) Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Run the command again and capture output, ensuring it doesn't fail the step
+          eslint_output=$(npx eslint . --ext .js,.jsx,.ts,.tsx || true)
+          
+          if [[ -z "$eslint_output" ]]; then
+            echo "✅ **Success**: No JavaScript linting violations found." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Violations Found**: The following issues were detected:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "$eslint_output" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please review the logs for detailed information on each violation." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Configuration**: \`.eslintrc.json\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Target**: All JavaScript/TypeScript files in the repository" >> $GITHUB_STEP_SUMMARY

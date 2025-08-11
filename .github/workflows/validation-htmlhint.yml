@@ -1,0 +1,54 @@
+name: HTML Validation (HTMLHint)
+
+on:
+  push:
+    branches:
+      - testbot/htmlhint-test-run
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  htmlhint_scan:
+    runs-on: ubuntu-latest
+    name: HTMLHint Scan
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install HTMLHint
+        run: npm install htmlhint
+
+      - name: Run HTMLHint
+        run: npx htmlhint "**/*.html"
+
+      - name: HTMLHint Summary
+        if: always()
+        run: |
+          echo "### 🔎 HTML Validation (HTMLHint) Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Run the command again and capture output
+          htmlhint_output=$(npx htmlhint "**/*.html" || true)
+          
+          if [[ -z "$htmlhint_output" ]]; then
+            echo "✅ **Success**: No HTML validation errors found." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Errors Found**: The following issues were detected:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "$htmlhint_output" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please review the logs for detailed information on each error." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Configuration**: \`.htmlhintrc\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Target**: All HTML files in the repository" >> $GITHUB_STEP_SUMMARY
