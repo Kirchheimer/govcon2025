@@ -15,6 +15,10 @@ yarn-error.log*
 package-lock.json
 yarn.lock
 
+# Lighthouse CI
+.lighthouseci/
+lighthouserc.js
+
 # BackstopJS test artifacts
 scripts/visual_regression_backstop/backstop_data/bitmaps_test/
 scripts/visual_regression_backstop/backstop_data/html_report/

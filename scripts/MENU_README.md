@@ -2,19 +2,34 @@
 
 ## Overview
 
-The `scripts-menu.sh` file provides a user-friendly command-line interface to run all the testing tools in the GovCon 2025 project. This menu system simplifies the execution of complex Docker commands and provides educational context for each testing tool.
+The project includes two menu scripts:
+
+1. **`scripts-menu.sh`** - Docker-based menu that runs all tests in isolated containers
+2. **`scripts-menu-node.sh`** - Node.js-based menu that runs commands directly from GitHub workflows
+
+Both menu systems provide a user-friendly command-line interface to run all the testing tools in the GovCon 2025 project, simplifying the execution of complex commands and providing educational context for each testing tool.
 
 ## Prerequisites
 
+### For Docker Menu (`scripts-menu.sh`)
 - Docker must be installed and running
 - Execute permissions on the script (already set)
 
+### For Node.js Menu (`scripts-menu-node.sh`)
+- Node.js installed (v18 or higher recommended)
+- Execute permissions on the script (already set)
+- Some tools require additional installation (PHP, Lychee, etc.)
+
 ## Usage
 
-From the project root directory, run:
-
+### Docker-based Menu
 ```bash
 ./scripts-menu.sh
+```
+
+### Node.js-based Menu
+```bash
+./scripts-menu-node.sh
 ```
 
 ## Menu Options
@@ -117,9 +132,37 @@ The script includes several safety features:
 - Run the respective tests first
 - Check the correct directories for output files
 
+## Differences Between Menu Versions
+
+### Docker Menu (`scripts-menu.sh`)
+- **Pros**: No local dependencies needed, consistent environment
+- **Cons**: Requires Docker, slower startup
+- **Best for**: Demonstrations, consistent testing environments
+
+### Node.js Menu (`scripts-menu-node.sh`)
+- **Pros**: Faster execution, uses exact GitHub Actions commands
+- **Cons**: Requires local tool installation
+- **Best for**: Development, debugging GitHub Actions locally
+
 ## Integration with CI/CD
 
-While this menu is designed for local/demo use, the same Docker commands can be integrated into CI/CD pipelines. See the `.github/workflows/` directory for GitHub Actions examples.
+Both menus are designed for local/demo use:
+- The Docker menu uses the same containers as `docker-composer-508.yml`
+- The Node.js menu runs the exact commands from GitHub Actions workflows
+
+See the `.github/workflows/` directory for the original GitHub Actions implementations.
+
+## GitHub Actions Branch Triggers
+
+The Node.js menu displays information about triggering GitHub Actions:
+- Accessibility (Axe): `testbot/508-test-run`
+- Accessibility (Pa11y): `testbot/508-pa11y-test-run`
+- Lighthouse CI: `testbot/lighthouse-test-run`
+- ESLint: `testbot/eslint-test-run`
+- PHP_CodeSniffer: `testbot/phpcs-test-run`
+- HTMLHint: `testbot/htmlhint-test-run`
+- Link Checker: `testbot/linkchecker-test-run`
+- OWASP ZAP: `testbot/security-test-run`
 
 ---
 
