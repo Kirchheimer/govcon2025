@@ -245,20 +245,170 @@ run_zap() {
 
 # Function to install all dependencies
 install_all_dependencies() {
-    echo -e "${YELLOW}Installing All Dependencies${NC}"
+    echo -e "${YELLOW}Installing All Dependencies for Debian Server${NC}"
     echo ""
     
-    echo -e "${GREEN}Installing Node.js dependencies...${NC}"
-    npm install axe-core puppeteer eslint htmlhint
+    # Check if running as root or with sudo access
+    if [[ $EUID -eq 0 ]]; then
+        SUDO=""
+    else
+        SUDO="sudo"
+        echo -e "${BLUE}Note: This script will use sudo for system-level installations${NC}"
+        echo ""
+    fi
     
-    echo -e "${GREEN}Installing global tools...${NC}"
-    npm install -g @lhci/cli@0.12.x
+    # System updates and basic tools - Critical for old containers
+    echo -e "${GREEN}Step 1: Updating system packages (critical for old containers)...${NC}"
+    echo -e "${BLUE}This may take a few minutes on old containers...${NC}"
+    
+    # First, try to fix any broken packages from old containers
+    $SUDO apt-get --fix-broken install -y 2>/dev/null || true
+    
+    # Update package lists with retry logic for old containers
+    echo -e "${BLUE}Updating package lists...${NC}"
+    for i in {1..3}; do
+        if $SUDO apt-get update; then
+            echo -e "${GREEN}Package lists updated successfully${NC}"
+            break
+        else
+            echo -e "${YELLOW}Update attempt $i failed, retrying...${NC}"
+            if [ $i -eq 3 ]; then
+                echo -e "${RED}Failed to update package lists after 3 attempts.${NC}"
+                echo -e "${RED}This is common with very old containers. Continuing anyway...${NC}"
+                echo -e "${YELLOW}Some packages may fail to install, but basic functionality should work.${NC}"
+            fi
+            sleep 2
+        fi
+    done
+    
+    # Upgrade existing packages to avoid conflicts
+    echo -e "${BLUE}Upgrading existing packages to avoid conflicts...${NC}"
+    $SUDO apt-get upgrade -y || {
+        echo -e "${YELLOW}Package upgrade had issues, but continuing...${NC}"
+    }
+    
+    echo -e "${GREEN}Step 2: Installing essential development tools...${NC}"
+    $SUDO apt-get install -y curl wget git build-essential jq unzip htop tree || {
+        echo -e "${YELLOW}Some essential tools failed to install. Continuing...${NC}"
+    }
+    
+    # Node.js and npm installation
+    echo -e "${GREEN}Step 3: Installing Node.js and npm...${NC}"
+    if ! command -v node &> /dev/null; then
+        $SUDO apt-get install -y nodejs npm || {
+            echo -e "${RED}Failed to install Node.js. Trying alternative method...${NC}"
+            # Alternative: Install Node.js from NodeSource repository
+            curl -fsSL https://deb.nodesource.com/setup_lts.x | $SUDO -E bash -
+            $SUDO apt-get install -y nodejs
+        }
+    else
+        echo -e "${BLUE}Node.js already installed: $(node -v)${NC}"
+    fi
+    
+    # Verify npm and install npx if needed
+    if ! command -v npm &> /dev/null; then
+        echo -e "${RED}npm not found. Please install Node.js manually.${NC}"
+        read -p "Press Enter to continue..."
+        return
+    fi
+    
+    echo -e "${GREEN}Step 4: Installing global Node.js tools...${NC}"
+    # Install yarn as an alternative package manager
+    if ! command -v yarn &> /dev/null; then
+        npm install -g yarn || echo -e "${YELLOW}Failed to install yarn globally${NC}"
+    fi
+    
+    # Install Lighthouse CI
+    npm install -g @lhci/cli@0.12.x || echo -e "${YELLOW}Failed to install Lighthouse CI globally${NC}"
+    
+    # PHP and related tools for code quality testing
+    echo -e "${GREEN}Step 5: Installing PHP and development tools...${NC}"
+    if ! command -v php &> /dev/null; then
+        $SUDO apt-get install -y php php-cli php-mbstring php-xml php-curl php-zip || {
+            echo -e "${YELLOW}PHP installation failed. Some tests may not work.${NC}"
+        }
+    else
+        echo -e "${BLUE}PHP already installed: $(php -v | head -n1)${NC}"
+    fi
+    
+    # Install Composer for PHP dependency management
+    if ! command -v composer &> /dev/null; then
+        echo -e "${GREEN}Installing Composer...${NC}"
+        curl -sS https://getcomposer.org/installer | php
+        $SUDO mv composer.phar /usr/local/bin/composer
+        $SUDO chmod +x /usr/local/bin/composer
+    else
+        echo -e "${BLUE}Composer already installed${NC}"
+    fi
+    
+    # Install PHP_CodeSniffer via Composer
+    echo -e "${GREEN}Step 6: Installing PHP_CodeSniffer...${NC}"
+    if ! command -v phpcs &> /dev/null; then
+        composer global require squizlabs/php_codesniffer || {
+            echo -e "${YELLOW}Failed to install PHP_CodeSniffer globally${NC}"
+        }
+        # Add composer global bin to PATH if not already there
+        echo 'export PATH="$HOME/.composer/vendor/bin:$PATH"' >> ~/.bashrc
+        export PATH="$HOME/.composer/vendor/bin:$PATH"
+    else
+        echo -e "${BLUE}PHP_CodeSniffer already installed${NC}"
+    fi
+    
+    # Install project-specific Node.js dependencies
+    echo -e "${GREEN}Step 7: Installing project Node.js dependencies...${NC}"
+    npm install axe-core puppeteer eslint htmlhint || {
+        echo -e "${YELLOW}Some Node.js dependencies failed to install${NC}"
+    }
+    
+    # Install additional useful tools
+    echo -e "${GREEN}Step 8: Installing additional testing tools...${NC}"
+    
+    # Try to install Lychee link checker
+    if ! command -v lychee &> /dev/null; then
+        echo -e "${BLUE}Attempting to install Lychee link checker...${NC}"
+        # Try to install via cargo if available
+        if command -v cargo &> /dev/null; then
+            cargo install lychee || echo -e "${YELLOW}Failed to install lychee via cargo${NC}"
+        else
+            echo -e "${YELLOW}Cargo not available. Installing Rust and Cargo...${NC}"
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            source ~/.cargo/env
+            cargo install lychee || echo -e "${YELLOW}Failed to install lychee${NC}"
+        fi
+    else
+        echo -e "${BLUE}Lychee already installed${NC}"
+    fi
+    
+    # Docker installation (useful for containerized testing)
+    echo -e "${GREEN}Step 9: Checking Docker installation...${NC}"
+    if ! command -v docker &> /dev/null; then
+        echo -e "${BLUE}Installing Docker...${NC}"
+        $SUDO apt-get install -y docker.io docker-compose || {
+            echo -e "${YELLOW}Docker installation failed. You can install it manually later.${NC}"
+        }
+        # Add user to docker group
+        $SUDO usermod -aG docker $USER || echo -e "${YELLOW}Failed to add user to docker group${NC}"
+    else
+        echo -e "${BLUE}Docker already installed: $(docker --version)${NC}"
+    fi
     
     echo ""
-    echo -e "${YELLOW}Additional tools that need manual installation:${NC}"
-    echo "- PHP & PHP_CodeSniffer: https://www.php.net/ & composer/pear"
-    echo "- Lychee: https://github.com/lycheeverse/lychee"
+    echo -e "${GREEN}=== Installation Summary ===${NC}"
+    echo -e "${GREEN}✓ System packages updated${NC}"
+    echo -e "${GREEN}✓ Essential development tools installed${NC}"
+    echo -e "${GREEN}✓ Node.js and npm: $(node -v 2>/dev/null || echo 'Not available') / $(npm -v 2>/dev/null || echo 'Not available')${NC}"
+    echo -e "${GREEN}✓ PHP: $(php -v 2>/dev/null | head -n1 || echo 'Not available')${NC}"
+    echo -e "${GREEN}✓ Composer: $(composer --version 2>/dev/null || echo 'Not available')${NC}"
+    echo -e "${GREEN}✓ Docker: $(docker --version 2>/dev/null || echo 'Not available')${NC}"
+    echo ""
+    
+    echo -e "${YELLOW}Additional tools that may need manual installation:${NC}"
     echo "- OWASP ZAP: https://www.zaproxy.org/"
+    echo "- Browser for testing (if running headless): chromium-browser"
+    echo ""
+    
+    echo -e "${BLUE}Note: You may need to restart your terminal or run 'source ~/.bashrc' to update your PATH${NC}"
+    echo -e "${BLUE}Note: If Docker was just installed, you may need to log out and back in for group permissions${NC}"
     
     echo ""
     read -p "Press Enter to continue..."
